@@ -1,6 +1,8 @@
+device: cuda:0
+
 # input data
-base_dir: /home/odie/3DV-2022
-data_dir: ${base_dir}/data/chair_img_pc_voxel_mesh
+base_dir: /home/leafying/git/NYCU-3DV-2023-Spring
+data_dir: /home/leafying/data/chair_img_pc_voxel_mesh
 dtype: "point" # "point" "voxel"
 n_points: 2048
 
@@ -8,21 +10,20 @@ n_points: 2048
 arch: resnet18
 
 # training
-lr: 0.0004
+lr: 0.001
+weight_decay: 0.01
 max_iter: 10000
+min_loss: 0.001
 
 # dataloader
-batch_size: 10
-num_workers: 2
-
-# logger
-log_freq: 1000
+batch_size: 32
+num_workers: 4
 
 # checkpoint
 save_freq: 100
 load_checkpoint: False
 
 # eval
-vis_freq: 1000
+vis_freq: 100
 load_eval_checkpoint: True
 

@@ -1,0 +1,29 @@
+device: cuda:1
+
+# input data
+base_dir: /home/leafying/git/NYCU-3DV-2023-Spring
+data_dir: /home/leafying/data/chair_img_pc_voxel_mesh
+dtype: "voxel" # "point" "voxel"
+n_points: 2048
+
+# vision model
+arch: resnet18
+
+# training
+lr: 0.001
+weight_decay: 0.01
+max_iter: 10000
+min_loss: 0.001
+
+# dataloader
+batch_size: 256
+num_workers: 4
+
+# checkpoint
+save_freq: 100
+load_checkpoint: False
+
+# eval
+vis_freq: 100
+load_eval_checkpoint: True
+

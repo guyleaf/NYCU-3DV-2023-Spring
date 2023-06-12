@@ -1,34 +1,36 @@
+import argparse
+import glob
+
+# from PIL import Image
+import os
+
+import numpy as np
 import torch
 from torch.utils.data import Dataset
-from torchvision import datasets
-from torchvision import transforms
+
+# from torchvision import datasets
 from torchvision.io import read_image
-from PIL import Image
 
-import os
-import glob
-import numpy as np
+# from pytorch3d.structures import Meshes
+# from pytorch3d.io import load_obj
+# from pytorch3d.renderer import TexturesVertex
 
-from pytorch3d.structures import Meshes
-from pytorch3d.io import load_obj
-from pytorch3d.renderer import TexturesVertex
 
 class ShapeNetDB(Dataset):
-    def __init__(self, data_dir, data_type, img_transform=False):
-        super(ShapeNetDB).__init__()
+    def __init__(self, data_dir: str, data_type: str, n_points: int = 2048):
+        super().__init__()
         self.data_dir = data_dir
         self.data_type = data_type
+        self.n_points = n_points
         self.db = self.load_db()
-        self.img_transform = img_transform
 
         self.get_index()
-
 
     def __len__(self):
         return len(self.db)
 
     def __getitem__(self, idx):
-        if self.data_type == 'point':
+        if self.data_type == "point":
             """
             Return shapes:
             img: (B, 256, 256, 3)
@@ -41,8 +43,8 @@ class ShapeNetDB(Dataset):
             assert img_id == object_id
 
             return img, pc, object_id
-        
-        elif self.data_type == 'voxel':
+
+        elif self.data_type == "voxel":
             """
             Return shapes:
             img: (B, 256, 256, 3)
@@ -66,34 +68,23 @@ class ShapeNetDB(Dataset):
 
     def load_db(self):
         # print(os.path.join(self.data_dir, '*'))
-        db_list = sorted(glob.glob(os.path.join(self.data_dir, '*')))
+        db_list = sorted(glob.glob(os.path.join(self.data_dir, "*")))
         # print(db_list)
 
         return db_list
-    
+
     def get_index(self):
-        self.id_index = self.data_dir.split('/').index("data") + 2
+        self.id_index = self.data_dir.split("/").index("data") + 2
         # print(self.id_index)
 
     def load_img(self, idx):
-        path = os.path.join(self.db[idx], 'view.png')
+        path = os.path.join(self.db[idx], "view.png")
         img = read_image(path) / 255.0
-        img = img.permute(1,2,0)
-        # raw_img = Image.open(path)
-        # img = torch.from_numpy(np.array(raw_img) / 255.0)[..., :3]
-        # img = img.to(dtype=torch.float32)
 
-        # if self.img_transform:
-        #     trans = transforms.Compose([
-        #                                 transforms.Resize(512),
-        #                                 transforms.ToTensor()
-        #                                 ])
-        #     img = trans(img)
-
-        object_id = self.db[idx].split('/')[self.id_index]
+        object_id = self.db[idx].split("/")[self.id_index]
 
         return img, object_id
-    
+
     # def load_mesh(self, idx):
     #     path = os.path.join(self.db[idx], 'model.obj')
     #     verts, faces, _ = load_obj(path, load_textures=False)
@@ -105,56 +96,67 @@ class ShapeNetDB(Dataset):
     #     scale = max(verts.abs().max(0)[0])
     #     verts = verts / scale
 
-        # make white texturre
-        # verts_rgb = torch.ones_like(verts)[None]  # (1, V, 3)
-        # textures = TexturesVertex(verts_features=verts_rgb)
+    # make white texturre
+    # verts_rgb = torch.ones_like(verts)[None]  # (1, V, 3)
+    # textures = TexturesVertex(verts_features=verts_rgb)
 
-        # mesh = Meshes(
-        #     verts=[verts],
-        #     faces=[faces_idx],
-        #     textures=textures
-        # )
+    # mesh = Meshes(
+    #     verts=[verts],
+    #     faces=[faces_idx],
+    #     textures=textures
+    # )
 
-        # object_id = self.db[idx].split('/')[self.id_index]
+    # object_id = self.db[idx].split('/')[self.id_index]
 
-        # return mesh, object_id
+    # return mesh, object_id
 
     def load_point(self, idx):
-        path = os.path.join(self.db[idx], 'point_cloud.npy')
-        points = np.load(path)
+        path = os.path.join(self.db[idx], "point_cloud.npy")
+        points: np.ndarray = np.load(path)
 
         # resample
-        # n_points = 2048
-        # choice = np.random.choice(points.shape[0], n_points, replace=True)
-        # points = points[choice, :3]
+        if self.n_points < points.shape[0]:
+            choice = np.random.choice(points.shape[0], self.n_points, replace=False)
+            points = points[choice]
 
         # normalize
-        points = points - np.expand_dims(np.mean(points, axis = 0), 0) # center
-        dist = np.max(np.sqrt(np.sum(points ** 2, axis = 1)),0)
-        points = points / dist #scale
+        points = points - np.expand_dims(np.mean(points, axis=0), 0)  # center
+        dist = np.max(np.sqrt(np.sum(points**2, axis=1)), 0)
+        points = points / dist  # scale
 
-        object_id = self.db[idx].split('/')[self.id_index]
+        object_id = self.db[idx].split("/")[self.id_index]
 
         return torch.from_numpy(points), object_id
-    
+
     def load_voxel(self, idx):
-        path = os.path.join(self.db[idx], 'voxel.npy')
+        path = os.path.join(self.db[idx], "voxel.npy")
         voxel = np.load(path)
 
-        object_id = self.db[idx].split('/')[self.id_index]
+        object_id = self.db[idx].split("/")[self.id_index]
 
-        return torch.from_numpy(voxel), object_id
+        return torch.from_numpy(voxel).float(), object_id
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("root_dir", type=str, help="The root path of dataset")
+    parser.add_argument(
+        "--dtype", default="point", type=str, help="The format of dataset"
+    )
+    parser.add_argument(
+        "--n_points", default=2048, type=int, help="The number of points"
+    )
+    args = parser.parse_args()
+
     from torch.utils.data import DataLoader
+
     # from pytorch3d.datasets import collate_batched_meshes
 
-    db = ShapeNetDB('/home/odie/3dv-hw/data/chair', 'point')
+    db = ShapeNetDB(args.root_dir, args.dtype, args.n_points)
     dataloader = DataLoader(db, batch_size=10, shuffle=True)
 
     for img, point, object_id in dataloader:
         print(img.shape)
-        print(point.shape)   
+        print(point.shape)
         print(object_id)
         break
