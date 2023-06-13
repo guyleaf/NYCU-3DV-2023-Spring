@@ -3,33 +3,23 @@ import sys
 import time
 
 import hydra
+import matplotlib.pyplot as plt
 import torch
 from omegaconf import DictConfig
 
 import src.losses as losses
 from src.dataset import ShapeNetDB
-from src.losses import ChamferDistanceLoss
 from src.model import SingleViewto3D
 
 # A logger for this file
 log = logging.getLogger(__name__)
-
-cd_loss = ChamferDistanceLoss()
 
 
 def calculate_loss(predictions, ground_truth, cfg):
     if cfg.dtype == "voxel":
         loss = losses.voxel_loss(predictions, ground_truth)
     elif cfg.dtype == "point":
-        loss = cd_loss(predictions, ground_truth)
-    # elif cfg.dtype == 'mesh':
-    #     sample_trg = sample_points_from_meshes(ground_truth, cfg.n_points)
-    #     sample_pred = sample_points_from_meshes(predictions, cfg.n_points)
-
-    #     loss_reg = losses.chamfer_loss(sample_pred, sample_trg)
-    #     loss_smooth = losses.smoothness_loss(predictions)
-
-    # loss = cfg.w_chamfer * loss_reg + cfg.w_smooth * loss_smooth
+        loss = losses.chamfer_loss(predictions, ground_truth)
     return loss
 
 
@@ -74,6 +64,7 @@ def train_model(cfg: DictConfig):
 
     log.info("Starting training !")
     best_loss = sys.float_info.max
+    loss_history = []
     for step in range(start_iter, cfg.max_iter):
         iter_start_time = time.time()
 
@@ -89,9 +80,10 @@ def train_model(cfg: DictConfig):
 
         read_time = time.time() - read_start_time
 
-        prediction_3d = model(images_gt)
+        prediction_logits: torch.Tensor
+        prediction_logits, _ = model(images_gt)
 
-        loss = calculate_loss(prediction_3d, ground_truth_3d, cfg)
+        loss = calculate_loss(prediction_logits, ground_truth_3d, cfg)
 
         optimizer.zero_grad()
         loss.backward()
@@ -128,7 +120,20 @@ def train_model(cfg: DictConfig):
             % (step, cfg.max_iter, total_time, read_time, iter_time, loss_vis)
         )
 
+        loss_history.append(loss_vis)
+
     log.info("Done!")
+
+    log.info("Best loss: %.5f" % (best_loss))
+
+    fig = plt.figure()
+    axe = fig.add_subplot()
+    axe.plot(loss_history)
+    axe.set_title("Training Loss")
+    axe.set_xlabel("Iteration")
+    axe.set_ylabel("Loss")
+    fig.savefig(f"loss_{cfg.dtype}.jpg")
+    plt.close(fig)
 
 
 if __name__ == "__main__":
