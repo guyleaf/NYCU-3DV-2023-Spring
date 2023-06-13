@@ -7,16 +7,15 @@ dtype: "voxel" # "point" "voxel"
 n_points: 2048
 
 # vision model
-arch: resnet18
+arch: resnet50
 
 # training
 lr: 0.001
 weight_decay: 0.01
-max_iter: 10000
-min_loss: 0.001
+max_iter: 20000
 
 # dataloader
-batch_size: 256
+batch_size: 32
 num_workers: 4
 
 # checkpoint
